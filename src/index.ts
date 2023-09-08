@@ -1,11 +1,10 @@
 require('dotenv').config({ path: '.env.local' });
+import IResults from "./interface/IResults";
 import UFetch from "./utils/UFetch";
 import { UInput } from "./utils/UInput";
 import UParse from "./utils/UParse";
 import UResults from "./utils/UResults";
-import * as qs from 'qs';
-// import fs from 'fs';
-import { stringify } from "querystring";
+import * as fs from 'fs';
 
 
 const menuInput = new UInput();
@@ -33,25 +32,46 @@ function patternSearch() {
 
 }
 
-async function idSearch(){
+function idSearch(){
   const idInput = new UInput();
   const id = parseFloat(idInput.prompt('What is the pattern id ?'));
+
+  fetchById(id)
+}
+
+async function fetchById(id:number) {
   const params = {
     tnam: id
   }
-
   try {
     const response = await UFetch("", 'GET', null, null, null, params);
-    await getPatternCode(response);
+    return(await getPatternCode(response));
   }
   catch (error) {
     console.error(error);
   }
 }
-
 // function to fetch all tartans available on the website and stores them in a file
-function getPatterns(){
+async function getPatterns(){
   // fetch all tartan from 1 to no more
+  let i:number = 1;
+  while(i!=-1) {
+    try {
+      const result = await fetchById(i);
+      writeInfoTxt(result);
+      i++;
+    } catch (error) {
+      i=-1;
+    }
+  }
+}
+
+function writeInfoTxt(results: any) {
+  const data = JSON.stringify(results, null, 2) + ',\n';
+  fs.appendFile('patterns.json', data, (err) => {
+    if (err) throw err;
+    console.log('Patterns written to file');
+  });
 }
 
 async function getPatternCode(res:any){
@@ -64,6 +84,13 @@ async function getPatternCode(res:any){
   try {
     const results = await UParse(res, targets);
     UResults(results as {[key: string]: string});
+
+    //if there is no pattern code it's a 404
+    if (!results['3']) {
+      throw new Error('Canvas element is empty');
+    }
+
+    return results;
   } catch (error) {
     console.error(error);
   }
